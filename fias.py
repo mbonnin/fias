@@ -1,6 +1,5 @@
 import urllib2
 from bs4 import BeautifulSoup
-from collections import namedtuple
 
 def get_soup(url):
     response = urllib2.urlopen(url)
