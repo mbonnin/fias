@@ -1,34 +1,50 @@
 import urllib2
 from bs4 import BeautifulSoup
+from collections import namedtuple
 
-baseURL = "https://www.fiasfreshmeals.com"
-menuURL = baseURL + "/this-weeks-menu-2"
-response = urllib2.urlopen(menuURL)
-html = response.read()
+def get_soup(url):
+    response = urllib2.urlopen(url)
+    return BeautifulSoup(response.read(), features="html.parser")
 
-soup = BeautifulSoup(html, features="html.parser")
+def find_item_links(url):
+    soup = get_soup(url)
+    itemLinks = []
+    for itemDivs in soup.findAll("div", {"class": "card-image"}):
+        for link in itemDivs.findAll("a"):
+            itemLinks.append(link.get("href"))
+    return itemLinks
 
-itemURLs = []
-
-for itemDivs in soup.findAll("div", {"class": "card-image"}):
-    for link in itemDivs.findAll("a"):
-        #print (link.get("href"))
-        itemURLs.append(link.get("href"))
-
-for itemURL in itemURLs:
-    itemResponse = urllib2.urlopen(baseURL + itemURL)
-    itemHtml = itemResponse.read()
-    itemSoup = BeautifulSoup(itemHtml, features="html.parser")
-    foodName = itemSoup.find("meta",  property="og:title")
-    print "Food Name: " + foodName["content"]
-    print "Calories: " + itemSoup.find(text="Calories").findNext('td').contents[0]
-    print "Fat: " + itemSoup.find(text="Total Fat").findNext('td').span.contents[0]
-    print "Sodium: " + itemSoup.find(text="Sodium").findNext('td').span.contents[0]
-    print "Carbohydrate: " + itemSoup.find(text="Total").findNext('td').span.contents[0]
-    print "Protein: " + itemSoup.find(text="Protein").findNext('td').span.contents[0]
-    print ""
-    #exit(1)
+def get_item_details(itemURL):
+    soup = get_soup(itemURL)
+    item = {}
+    item["name"] = soup.find("meta",  property="og:title")["content"]
+    #print item
+    item["calories"] = get_item_value(soup, "Calories", False)
+    item["fat"] = get_item_value(soup, "Total Fat")
+    item["sodium"] = get_item_value(soup, "Sodium")
+    item["carbs"] = get_item_value(soup, "Total")
+    item["protein"] = get_item_value(soup, "Protein")
+    return item
     
+def get_item_value(soup, name, withSpan = True):
+    itemContent = soup.find(text=name)
+    if itemContent is not None:
+        if withSpan:
+            itemVal = itemContent.findNext('td').span.contents[0]
+        else:
+            itemVal = itemContent.findNext('td').contents[0]
+    else:
+        # If the content does not exist, set the value to 0
+        itemVal = 0
+    return itemVal
 
-
-
+def main():
+    baseURL = "https://www.fiasfreshmeals.com"
+    menuURL = baseURL + "/this-weeks-menu-2"
+    items = []
+    for itemLink in find_item_links(menuURL):
+        items.append(get_item_details(baseURL + itemLink))
+    print items
+        
+if __name__ == "__main__":
+    main()
